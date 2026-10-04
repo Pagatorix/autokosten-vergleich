@@ -65,6 +65,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .tablewrap { overflow-x: auto; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
 .best td { font-weight: 600; }
+#rankTable td:nth-child(2) { white-space: normal; min-width: 160px; }
 .sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px 20px; }
 .sliders label { font-size: 0.85rem; color: var(--muted); display: block; }
 .sliders output { float: right; color: var(--text); font-weight: 600; }
@@ -329,8 +330,10 @@ function simulate(v, g, s) {
     const t = m / 12;
     if (v.typ === "uebernahme") return n0(g.marktwert) * curveAt(curve, a0 + t) / curveAt(curve, a0);
     if (a0 > 0) return n0(v.kaufpreis) * curveAt(curve, a0 + t) / curveAt(curve, a0);
-    if (m === 0) return n0(v.kaufpreis);
-    return n0(v.listenpreis) * curveAt(curve, t);
+    // Neuwagen: Start beim Kaufpreis, ab Jahr 1 Marktwert nach Listenpreis-Kurve
+    const lp = n0(v.listenpreis) || n0(v.kaufpreis);
+    if (t >= 1) return lp * curveAt(curve, t);
+    return n0(v.kaufpreis) + (lp * curveAt(curve, 1) - n0(v.kaufpreis)) * t;
   }
   const endRaw = rawValue(N);
   const restSet = v.restwert !== "" && v.restwert != null && isFinite(parseFloat(v.restwert));
@@ -530,7 +533,7 @@ function renderResults() {
 }
 
 function renderLine(res, months) {
-  const W = 820, H = 330, ml = 64, mr = 16, mt = 12, mb = 34;
+  const W = Math.max(340, $("lineChart").clientWidth || 820), H = Math.round(Math.min(330, Math.max(240, W * 0.45))), ml = 52, mr = 16, mt = 12, mb = 34;
   const all = res.flatMap(r => r.curve);
   let lo = Math.min(0, ...all), hi = Math.max(...all, 1);
   const step = niceStep(hi - lo, 6);
@@ -578,7 +581,7 @@ function renderLine(res, months) {
 }
 
 function renderBars(res) {
-  const W = 820, rowH = 34, ml = 10, mr = 16, labelH = 18, mt = 4;
+  const W = Math.max(340, $("barChart").clientWidth || 820), rowH = 34, ml = 10, mr = 16, labelH = 18, mt = 4;
   const H = mt + res.length * (rowH + labelH) + 26;
   let lo = 0, hi = 1;
   res.forEach(r => {
@@ -679,6 +682,7 @@ $("fileImport").addEventListener("change", e => {
 
 function renderAll() { renderGlobals(); renderVariants(); Object.assign(sens, { strom: 0, benzin: 0, rest: 0 }); sens.km = n0(state.g.km); syncSliders(); renderResults(); }
 renderAll();
+let rzT; window.addEventListener("resize", () => { clearTimeout(rzT); rzT = setTimeout(renderResults, 150); });
 </script>
 </body>
 </html>

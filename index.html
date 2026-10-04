@@ -89,7 +89,7 @@ footer { color: var(--muted); font-size: 0.82rem; margin-top: 24px; }
   <header>
     <div>
       <h1>Autokosten-Vergleich</h1>
-      <p class="sub">Übernehmen, kaufen, finanzieren oder leasen: Gesamtkosten von E-Autos und Plug-in-Hybriden im direkten Vergleich.</p>
+      <p class="sub">Übernehmen, kaufen, finanzieren oder leasen: Gesamtkosten von E-Autos und Plug-in-Hybriden im direkten Vergleich, mit dem aktuellen Wagen als Referenz.</p>
     </div>
     <div class="toolbar">
       <button id="btnExport">Export (JSON)</button>
@@ -111,7 +111,7 @@ footer { color: var(--muted); font-size: 0.82rem; margin-top: 24px; }
     <div class="sliders">
       <label>Fahrleistung <output id="oKm"></output><input type="range" id="sKm" min="5000" max="40000" step="1000"></label>
       <label>Strompreis <output id="oStrom"></output><input type="range" id="sStrom" min="-50" max="100" step="5" value="0"></label>
-      <label>Benzinpreis <output id="oBenzin"></output><input type="range" id="sBenzin" min="-30" max="60" step="5" value="0"></label>
+      <label>Kraftstoffpreis <output id="oBenzin"></output><input type="range" id="sBenzin" min="-30" max="60" step="5" value="0"></label>
       <label>Restwerte <output id="oRest"></output><input type="range" id="sRest" min="-20" max="20" step="1" value="0"></label>
     </div>
     <p style="margin:10px 0 0"><button id="btnSensReset" class="ghost">Regler zurücksetzen</button></p>
@@ -184,7 +184,7 @@ const CATS = [
   ["wert", "Wertverlust", "#3b6fd8"],
   ["zins", "Kreditzinsen", "#8b5cf6"],
   ["leasing", "Leasingraten & Sonderzahlung", "#0ea5a4"],
-  ["energie", "Strom & Benzin", "#f59e0b"],
+  ["energie", "Strom & Kraftstoff", "#f59e0b"],
   ["vers", "Versicherung", "#64748b"],
   ["steuer", "Kfz-Steuer", "#94a3b8"],
   ["wartung", "Wartung & Reifen", "#84cc16"],
@@ -198,17 +198,18 @@ const CATS = [
 function beispiel() {
   return {
     g: {
-      jahre: 4, km: 15000, heimAnteil: 80, heimPreis: 0.32, oeffPreis: 0.55, benzin: 1.75,
+      jahre: 4, km: 15000, heimAnteil: 80, heimPreis: 0.32, oeffPreis: 0.55, benzin: 1.75, diesel: 1.65,
       guthabenzins: 2.0, inflation: 2.0,
       schlussrate: 14500, marktwert: 16000, altModus: "rueckgabe",
       kurveBev: "100,72,60,51,44,38,33,29,26,23,21",
-      kurvePhev: "100,76,64,55,48,42,37,33,29,26,24"
+      kurvePhev: "100,76,64,55,48,42,37,33,29,26,24",
+      kurveVerb: "100,80,68,59,52,46,41,37,33,30,27"
     },
     v: [
-      { id: uid(), name: "Aktuelles Auto übernehmen (Platzhalter)", typ: "uebernahme", antrieb: "bev", zahlweise: "bar",
-        alter: 4, zins: 5.5, laufzeit: 36, restwert: "", kwh: 18, liter: 0, eAnteil: 100,
-        versicherung: 850, steuer: 0, wartung: 250, reifen: 200, thg: 80, wallbox: 0,
-        reparatur: 300, reparaturSteigerung: 20, garantie: 4 },
+      { id: uid(), name: "Aktuelles Auto übernehmen (Verbrenner, Platzhalter)", typ: "uebernahme", antrieb: "benzin", zahlweise: "bar",
+        alter: 4, zins: 5.5, laufzeit: 36, restwert: "", kwh: 0, liter: 6.5, eAnteil: 0,
+        versicherung: 850, steuer: 120, wartung: 400, reifen: 200, thg: 0, wallbox: 0,
+        reparatur: 400, reparaturSteigerung: 20, garantie: 0 },
       { id: uid(), name: "Beispiel: Kompakt-SUV elektrisch, Leasing", typ: "leasing", antrieb: "bev",
         rate: 329, sonderzahlung: 3000, laufzeit: 36, inklKm: 15000, mehrKm: 0.08, minderKm: 0.04, rueckgabe: 600,
         ueberfuehrung: 1100, foerderung: 0, kwh: 17, liter: 0, eAnteil: 100,
@@ -233,7 +234,7 @@ function vorlage(typ) {
     ueberfuehrung: 1000, foerderung: 0, restwert: "", kwh: 18, liter: 6, eAnteil: 60,
     versicherung: 1000, steuer: 0, wartung: 200, reifen: 200, thg: 80, wallbox: 0,
     reparatur: 0, reparaturSteigerung: 10, garantie: 8 };
-  if (typ === "uebernahme") Object.assign(base, { name: "Aktuelles Auto übernehmen", alter: 4, reparatur: 300, reparaturSteigerung: 20, garantie: 4, laufzeit: 36, zins: 5.5 });
+  if (typ === "uebernahme") Object.assign(base, { name: "Aktuelles Auto übernehmen", antrieb: "benzin", liter: 6.5, steuer: 120, wartung: 400, thg: 0, alter: 4, reparatur: 300, reparaturSteigerung: 20, garantie: 4, laufzeit: 36, zins: 5.5 });
   if (typ === "kauf") base.schlussrate = 0;
   return base;
 }
@@ -244,6 +245,8 @@ let state;
 try { state = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { state = null; }
 if (!state || !state.g || !Array.isArray(state.v)) state = beispiel();
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }
+if (state.g.diesel === undefined) state.g.diesel = 1.65;
+if (!state.g.kurveVerb) state.g.kurveVerb = "100,80,68,59,52,46,41,37,33,30,27";
 const sens = { km: state.g.km, strom: 0, benzin: 0, rest: 0 };
 
 /* ---------- Feld-Schemata ---------- */
@@ -254,6 +257,7 @@ const GLOBAL_FIELDS = [
   ["heimPreis", "Strompreis zu Hause", "€/kWh", 0.01],
   ["oeffPreis", "Strompreis öffentlich", "€/kWh", 0.01],
   ["benzin", "Benzinpreis", "€/l", 0.01],
+  ["diesel", "Dieselpreis", "€/l", 0.01],
   ["guthabenzins", "Guthabenzins (Opportunität)", "% p. a.", 0.1],
   ["inflation", "Preissteigerung laufende Kosten", "% p. a.", 0.5]
 ];
@@ -262,6 +266,9 @@ const OLD_FIELDS = [
   ["marktwert", "Marktwert heute (Schätzung)", "€", 500]
 ];
 const isPurchase = v => v.typ !== "leasing";
+const isVerb = v => v.antrieb === "benzin" || v.antrieb === "diesel";
+const ANTRIEBE = { bev: "Elektroauto (BEV)", phev: "Plug-in-Hybrid (PHEV)", benzin: "Verbrenner (Benzin)", diesel: "Verbrenner (Diesel)" };
+const ANTR_KURZ = { bev: "BEV", phev: "PHEV", benzin: "Benzin", diesel: "Diesel" };
 const isLoan = v => v.typ === "finanz" || (v.typ === "uebernahme" && v.zahlweise === "finanz");
 const VFIELDS = [
   ["Fahrzeug", "listenpreis", "Bruttolistenpreis", "€", v => v.typ === "kauf" || v.typ === "finanz", 500],
@@ -280,15 +287,15 @@ const VFIELDS = [
   ["Leasing", "mehrKm", "Mehr-km", "€/km", v => v.typ === "leasing", 0.01],
   ["Leasing", "minderKm", "Minder-km (Erstattung)", "€/km", v => v.typ === "leasing", 0.01],
   ["Leasing", "rueckgabe", "Rückgabeschäden (Schätzung)", "€", v => v.typ === "leasing", 100],
-  ["Energie", "kwh", "Stromverbrauch inkl. Ladeverlust", "kWh/100 km", () => true, 0.5],
-  ["Energie", "liter", "Benzinverbrauch (Hybridbetrieb)", "l/100 km", v => v.antrieb === "phev", 0.1],
+  ["Energie", "kwh", "Stromverbrauch inkl. Ladeverlust", "kWh/100 km", v => !isVerb(v), 0.5],
+  ["Energie", "liter", "Kraftstoffverbrauch", "l/100 km", v => v.antrieb === "phev" || isVerb(v), 0.1],
   ["Energie", "eAnteil", "Elektrischer Fahranteil", "%", v => v.antrieb === "phev", 5],
   ["Laufende Kosten", "versicherung", "Versicherung", "€/Jahr", () => true, 50],
   ["Laufende Kosten", "steuer", "Kfz-Steuer", "€/Jahr", () => true, 10],
   ["Laufende Kosten", "wartung", "Wartung / Inspektion", "€/Jahr", () => true, 10],
   ["Laufende Kosten", "reifen", "Reifen (anteilig)", "€/Jahr", () => true, 10],
   ["Laufende Kosten", "thg", "THG-Quote (Erlös)", "€/Jahr", v => v.antrieb === "bev", 10],
-  ["Laufende Kosten", "wallbox", "Wallbox (einmalig)", "€", () => true, 100],
+  ["Laufende Kosten", "wallbox", "Wallbox (einmalig)", "€", v => !isVerb(v), 100],
   ["Altersrisiko", "reparatur", "Reparaturrücklage", "€/Jahr (1. Jahr)", v => isPurchase(v), 50],
   ["Altersrisiko", "reparaturSteigerung", "Steigerung der Rücklage", "% pro Jahr", v => isPurchase(v), 5],
   ["Altersrisiko", "garantie", "Garantie endet in", "Jahren ab heute", v => isPurchase(v), 0.5]
@@ -316,10 +323,10 @@ function simulate(v, g, s) {
   const km = s.km;
   const ha = Math.min(100, Math.max(0, n0(g.heimAnteil))) / 100;
   const strom = (ha * n0(g.heimPreis) + (1 - ha) * n0(g.oeffPreis)) * (1 + s.strom / 100);
-  const fuel = n0(g.benzin) * (1 + s.benzin / 100);
+  const fuel = n0(v.antrieb === "diesel" ? g.diesel : g.benzin) * (1 + s.benzin / 100);
   const r = n0(g.guthabenzins) / 100 / 12;
   const inf = n0(g.inflation) / 100;
-  const curve = parseCurve(v.antrieb === "phev" ? g.kurvePhev : g.kurveBev);
+  const curve = parseCurve(v.antrieb === "phev" ? g.kurvePhev : isVerb(v) ? g.kurveVerb : g.kurveBev);
   const cats = {}; CATS.forEach(c => cats[c[0]] = 0);
   let cash = 0, opp = 0;
   const add = (c, x) => { cats[c] += x; cash += x; };
@@ -362,7 +369,7 @@ function simulate(v, g, s) {
   if (v.typ === "finanz") add("wert", n0(v.anzahlung));
   if (v.typ === "leasing") add("leasing", n0(v.sonderzahlung));
   if (v.typ !== "uebernahme") { add("neben", n0(v.ueberfuehrung)); add("gutschrift", -n0(v.foerderung)); }
-  add("neben", n0(v.wallbox));
+  if (!isVerb(v)) add("neben", n0(v.wallbox));
   if (v.typ !== "uebernahme" && g.altModus === "verkauf") add("gutschrift", -(n0(g.marktwert) - n0(g.schlussrate)));
 
   function endAdj(m) {
@@ -374,7 +381,7 @@ function simulate(v, g, s) {
     return -value(m) + bal;
   }
   const curveOut = [cash + endAdj(0)];
-  const e = v.antrieb === "phev" ? Math.min(100, Math.max(0, n0(v.eAnteil))) / 100 : 1;
+  const e = isVerb(v) ? 0 : v.antrieb === "phev" ? Math.min(100, Math.max(0, n0(v.eAnteil))) / 100 : 1;
   const energyPerKm = (e * n0(v.kwh) * strom + (1 - e) * n0(v.liter) * fuel) / 100;
 
   for (let m = 1; m <= N; m++) {
@@ -430,7 +437,8 @@ function renderGlobals() {
   $("globalFields").innerHTML = GLOBAL_FIELDS.map(([k, l, u, st]) => fieldHtml(k, l, u, st, state.g[k], "data-g")).join("");
   $("curveFields").innerHTML =
     `<label class="f">Elektroauto (BEV)<input type="text" data-g="kurveBev" value="${esc(state.g.kurveBev)}"></label>
-     <label class="f">Plug-in-Hybrid (PHEV)<input type="text" data-g="kurvePhev" value="${esc(state.g.kurvePhev)}"></label>`;
+     <label class="f">Plug-in-Hybrid (PHEV)<input type="text" data-g="kurvePhev" value="${esc(state.g.kurvePhev)}"></label>
+     <label class="f">Verbrenner<input type="text" data-g="kurveVerb" value="${esc(state.g.kurveVerb)}"></label>`;
   $("oldFields").innerHTML = OLD_FIELDS.map(([k, l, u, st]) => fieldHtml(k, l, u, st, state.g[k], "data-g")).join("") +
     `<label class="f">Bei Wechsel auf ein anderes Auto
       <select data-g="altModus">
@@ -458,9 +466,7 @@ function renderVariants() {
       </div>
       <div class="vsel">
         <label class="f">Art<select data-vs="typ">${Object.entries(TYPEN).map(([k, l]) => `<option value="${k}"${v.typ === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
-        <label class="f">Antrieb<select data-vs="antrieb">
-          <option value="bev"${v.antrieb === "bev" ? " selected" : ""}>Elektroauto (BEV)</option>
-          <option value="phev"${v.antrieb === "phev" ? " selected" : ""}>Plug-in-Hybrid (PHEV)</option></select></label>
+        <label class="f">Antrieb<select data-vs="antrieb">${Object.entries(ANTRIEBE).map(([k, l]) => `<option value="${k}"${v.antrieb === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
         ${zw}
       </div>
       ${Object.entries(groups).map(([g, fs]) => `<div class="group"><div class="gt">${g}</div><div class="grid">${fs.join("")}</div></div>`).join("")}
@@ -498,6 +504,8 @@ function renderResults() {
       const diff = sens.km - n0(v.inklKm);
       if (diff !== 0) infos.push(diff > 0 ? `${num.format(diff)} km/Jahr über Inklusiv-km.` : `${num.format(-diff)} km/Jahr unter Inklusiv-km (Erstattung meist erst ab 2.500 km Abweichung).`);
     }
+    if (isVerb(v) && v.typ !== "uebernahme") hints.push(`Verbrenner kommen als neues Fahrzeug nicht in Betracht; nur als Referenz sinnvoll.`);
+    if (isVerb(v)) infos.push(`Steigende CO₂-Preise verteuern Kraftstoff: über „Preissteigerung“ oder den Kraftstoffpreis-Regler prüfen.`);
     if (isPurchase(v) && n0(v.garantie) < n0(g.jahre)) hints.push(`Garantie endet nach ${num.format(n0(v.garantie))} Jahren, also innerhalb des Vergleichszeitraums. Reparaturrücklage prüfen.`);
     el.innerHTML = infos.map(t => `<div class="info">${t}</div>`).join("") + hints.map(t => `<div class="hint">⚠︎ ${t}</div>`).join("");
   });
@@ -519,7 +527,7 @@ function renderResults() {
     (sorted[1] ? ` Abstand zur nächstbesten Variante: <b>${eur.format(sorted[1].total - best.total)}</b>.` : "") +
     (sens.km !== n0(g.km) || sens.strom || sens.benzin || sens.rest ? ` <span class="badge">Szenario aktiv</span>` : "");
   $("rankTable").innerHTML = `<thead><tr><th>#</th><th>Variante</th><th>Gesamtkosten</th><th>pro Monat</th><th>pro km</th><th>Mehrkosten</th></tr></thead><tbody>` +
-    sorted.map((r, k) => `<tr class="${k === 0 ? "best" : ""}"><td>${k + 1}</td><td><span class="dot" style="background:${r.color}"></span>${esc(r.v.name)} <span class="small">· ${TYPEN[r.v.typ]}, ${r.v.antrieb.toUpperCase()}</span></td>
+    sorted.map((r, k) => `<tr class="${k === 0 ? "best" : ""}"><td>${k + 1}</td><td><span class="dot" style="background:${r.color}"></span>${esc(r.v.name)} <span class="small">· ${TYPEN[r.v.typ]}, ${ANTR_KURZ[r.v.antrieb] || r.v.antrieb}</span></td>
       <td>${eur.format(r.total)}</td><td>${eur.format(r.total / months)}</td><td>${totalKm > 0 ? num.format(r.total / totalKm * 100) + " ct" : "–"}</td>
       <td>${k === 0 ? "–" : "+ " + eur.format(r.total - best.total)}</td></tr>`).join("") + `</tbody>`;
 

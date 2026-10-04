@@ -98,6 +98,9 @@ footer { color: var(--muted); font-size: 0.82rem; margin-top: 24px; }
   #printReport { break-before: page; }
   #printReport .pblock { break-inside: avoid; }
   #rankTable td:nth-child(2) { min-width: 0; }
+  .tablewrap { overflow: visible; }
+  #printReport table, #catTable { font-size: 8.5pt; }
+  #printReport td:nth-child(n+3), #printReport th:nth-child(n+3) { text-align: right; }
   th, td { padding: 5px 6px; }
 }
 .tabs button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }

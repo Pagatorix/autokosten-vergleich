@@ -506,7 +506,7 @@ function renderResults() {
     }
     if (isVerb(v) && v.typ !== "uebernahme") hints.push(`Verbrenner kommen als neues Fahrzeug nicht in Betracht; nur als Referenz sinnvoll.`);
     if (isVerb(v)) infos.push(`Steigende CO₂-Preise verteuern Kraftstoff: über „Preissteigerung“ oder den Kraftstoffpreis-Regler prüfen.`);
-    if (isPurchase(v) && n0(v.garantie) < n0(g.jahre)) hints.push(`Garantie endet nach ${num.format(n0(v.garantie))} Jahren, also innerhalb des Vergleichszeitraums. Reparaturrücklage prüfen.`);
+    if (isPurchase(v) && n0(v.garantie) < n0(g.jahre)) hints.push(n0(v.garantie) <= 0 ? `Keine Werksgarantie mehr. Reparaturrücklage prüfen.` : `Garantie endet nach ${num.format(n0(v.garantie))} Jahren, also innerhalb des Vergleichszeitraums. Reparaturrücklage prüfen.`);
     el.innerHTML = infos.map(t => `<div class="info">${t}</div>`).join("") + hints.map(t => `<div class="hint">⚠︎ ${t}</div>`).join("");
   });
 

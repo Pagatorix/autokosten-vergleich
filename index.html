@@ -81,6 +81,25 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
 .small { font-size: 0.82rem; color: var(--muted); }
 footer { color: var(--muted); font-size: 0.82rem; margin-top: 24px; }
 .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.print-only { display: none; }
+#printReport table td, #printReport table th { white-space: normal; }
+#printReport h3 { margin: 14px 0 6px; }
+@media print {
+  :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    --bg: #fff; --card: #fff; --text: #111; --muted: #555; --line: #d5d9e0; --grid: #e6e9ee;
+    --accent: #2563eb; --accent-soft: #e8efff; --warn-bg: #fff6e0; --warn-text: #7a5300;
+  }
+  @page { size: A4; margin: 14mm 12mm; }
+  body { font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .wrap { max-width: none; padding: 0; }
+  .no-print, .toolbar, #tip, details > summary { display: none !important; }
+  .print-only { display: block; }
+  .card { border: none; padding: 0; margin: 0 0 14px; break-inside: avoid; }
+  #printReport { break-before: page; }
+  #printReport .pblock { break-inside: avoid; }
+  #rankTable td:nth-child(2) { min-width: 0; }
+  th, td { padding: 5px 6px; }
+}
 .tabs button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
@@ -89,9 +108,11 @@ footer { color: var(--muted); font-size: 0.82rem; margin-top: 24px; }
   <header>
     <div>
       <h1>Autokosten-Vergleich</h1>
+      <p class="print-only small" id="printStand"></p>
       <p class="sub">Übernehmen, kaufen, finanzieren oder leasen: Gesamtkosten von E-Autos und Plug-in-Hybriden im direkten Vergleich, mit dem aktuellen Wagen als Referenz.</p>
     </div>
     <div class="toolbar">
+      <button id="btnPdf" class="primary">PDF-Bericht</button>
       <button id="btnExport">Export (JSON)</button>
       <label class="btn" for="fileImport">Import</label>
       <input type="file" id="fileImport" accept="application/json,.json" hidden>
@@ -106,7 +127,8 @@ footer { color: var(--muted); font-size: 0.82rem; margin-top: 24px; }
     <div class="tablewrap" style="margin-top:10px"><table id="rankTable"></table></div>
   </section>
 
-  <section class="card">
+  <p class="print-only small" id="printSzenario"></p>
+  <section class="card no-print">
     <h2>Was wäre, wenn …? <span class="small">(Regler verändern nur die Ansicht, nicht Ihre Eingaben)</span></h2>
     <div class="sliders">
       <label>Fahrleistung <output id="oKm"></output><input type="range" id="sKm" min="5000" max="40000" step="1000"></label>
@@ -133,8 +155,10 @@ footer { color: var(--muted); font-size: 0.82rem; margin-top: 24px; }
     </details>
   </section>
 
+  <section class="card print-only" id="printReport"></section>
+
   <!-- Eingaben -->
-  <div class="two">
+  <div class="two no-print">
     <section class="card">
       <h2>Rahmen &amp; Fahrprofil</h2>
       <div class="grid" id="globalFields"></div>
@@ -150,7 +174,7 @@ footer { color: var(--muted); font-size: 0.82rem; margin-top: 24px; }
     </section>
   </div>
 
-  <section>
+  <section class="no-print">
     <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0 12px;flex-wrap:wrap;gap:8px">
       <h2 style="margin:0">Varianten</h2>
       <div class="toolbar">
@@ -247,6 +271,7 @@ if (!state || !state.g || !Array.isArray(state.v)) state = beispiel();
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }
 if (state.g.diesel === undefined) state.g.diesel = 1.65;
 if (!state.g.kurveVerb) state.g.kurveVerb = "100,80,68,59,52,46,41,37,33,30,27";
+let printMode = false;
 const sens = { km: state.g.km, strom: 0, benzin: 0, rest: 0 };
 
 /* ---------- Feld-Schemata ---------- */
@@ -541,7 +566,7 @@ function renderResults() {
 }
 
 function renderLine(res, months) {
-  const W = Math.max(340, $("lineChart").clientWidth || 820), H = Math.round(Math.min(330, Math.max(240, W * 0.45))), ml = 52, mr = 16, mt = 12, mb = 34;
+  const W = printMode ? 720 : Math.max(340, $("lineChart").clientWidth || 820), H = Math.round(Math.min(330, Math.max(240, W * 0.45))), ml = 52, mr = 16, mt = 12, mb = 34;
   const all = res.flatMap(r => r.curve);
   let lo = Math.min(0, ...all), hi = Math.max(...all, 1);
   const step = niceStep(hi - lo, 6);
@@ -589,7 +614,7 @@ function renderLine(res, months) {
 }
 
 function renderBars(res) {
-  const W = Math.max(340, $("barChart").clientWidth || 820), rowH = 34, ml = 10, mr = 16, labelH = 18, mt = 4;
+  const W = printMode ? 720 : Math.max(340, $("barChart").clientWidth || 820), rowH = 34, ml = 10, mr = 16, labelH = 18, mt = 4;
   const H = mt + res.length * (rowH + labelH) + 26;
   let lo = 0, hi = 1;
   res.forEach(r => {
@@ -687,6 +712,53 @@ $("fileImport").addEventListener("change", e => {
     state = d; sens.km = n0(state.g.km); save(); renderAll();
   }).catch(() => alert("Die Datei konnte nicht gelesen werden.")).finally(() => { e.target.value = ""; });
 });
+
+
+/* ---------- PDF-Bericht (Druckansicht) ---------- */
+const fmtVal = x => (x === "" || x == null) ? "–" : (typeof x === "number" || isFinite(parseFloat(x))) ? new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 }).format(parseFloat(x)) : esc(x);
+function buildReport() {
+  const g = state.g;
+  const heute = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  $("printStand").textContent = "Bericht vom " + heute + " · Modellrechnung ohne Gewähr";
+  const sz = [];
+  if (sens.km !== n0(g.km)) sz.push("Fahrleistung " + num.format(sens.km) + " km/Jahr");
+  if (sens.strom) sz.push("Strompreis " + (sens.strom > 0 ? "+" : "") + sens.strom + " %");
+  if (sens.benzin) sz.push("Kraftstoffpreis " + (sens.benzin > 0 ? "+" : "") + sens.benzin + " %");
+  if (sens.rest) sz.push("Restwerte " + (sens.rest > 0 ? "+" : "") + sens.rest + " %");
+  $("printSzenario").textContent = sz.length ? "Szenario aktiv (abweichend von den Eingaben): " + sz.join(", ") + "." : "";
+  const row = (l, v, u) => `<tr><td>${esc(l)}</td><td>${v}</td><td>${esc(u || "")}</td></tr>`;
+  let h = `<h2>Annahmen</h2><div class="two"><div class="pblock"><h3>Rahmen &amp; Fahrprofil</h3><table><tbody>` +
+    GLOBAL_FIELDS.map(([k, l, u]) => row(l, fmtVal(g[k]), u)).join("") + `</tbody></table></div>` +
+    `<div class="pblock"><h3>Aktuelles Auto</h3><table><tbody>` +
+    OLD_FIELDS.map(([k, l, u]) => row(l, fmtVal(g[k]), u)).join("") +
+    row("Bei Wechsel", g.altModus === "verkauf" ? "Schlussrate zahlen &amp; verkaufen" : "Rückgabe zur Schlussrate", "") +
+    `</tbody></table><h3>Wertverlustkurven (% vom Neupreis, Jahr 0, 1, 2 …)</h3><table><tbody>` +
+    row("Elektroauto", esc(g.kurveBev), "") + row("Plug-in-Hybrid", esc(g.kurvePhev), "") + row("Verbrenner", esc(g.kurveVerb), "") +
+    `</tbody></table></div></div>`;
+  if (state.v.length) {
+    const vs = state.v;
+    let t = `<div class="pblock"><h3>Varianten</h3><div class="tablewrap"><table><thead><tr><th>Angabe</th><th></th>` +
+      vs.map((v, i) => `<th><span class="dot" style="background:${VCOLORS[i % VCOLORS.length]}"></span>${esc(v.name)}</th>`).join("") + `</tr></thead><tbody>`;
+    t += `<tr><td>Art</td><td></td>${vs.map(v => `<td>${TYPEN[v.typ]}</td>`).join("")}</tr>`;
+    t += `<tr><td>Antrieb</td><td></td>${vs.map(v => `<td>${ANTRIEBE[v.antrieb] || v.antrieb}</td>`).join("")}</tr>`;
+    if (vs.some(v => v.typ === "uebernahme")) t += `<tr><td>Schlussrate zahlen</td><td></td>${vs.map(v => `<td>${v.typ === "uebernahme" ? (v.zahlweise === "finanz" ? "Anschlussfinanzierung" : "bar") : "–"}</td>`).join("")}</tr>`;
+    VFIELDS.forEach(([, k, l, u, show]) => {
+      if (!vs.some(v => show(v))) return;
+      t += `<tr><td>${esc(l)}</td><td class="small">${esc(u)}</td>${vs.map(v => `<td>${show(v) ? (k === "restwert" && (v[k] === "" || v[k] == null) ? "Kurve" : fmtVal(v[k])) : "–"}</td>`).join("")}</tr>`;
+    });
+    h += t + `</tbody></table></div></div>`;
+  }
+  $("printReport").innerHTML = h;
+}
+let openedDetails = [];
+window.addEventListener("beforeprint", () => {
+  buildReport();
+  openedDetails = [...document.querySelectorAll("details:not([open])")];
+  openedDetails.forEach(d => d.open = true);
+  printMode = true; renderResults();
+});
+window.addEventListener("afterprint", () => { openedDetails.forEach(d => d.open = false); openedDetails = []; printMode = false; renderResults(); });
+$("btnPdf").addEventListener("click", () => { buildReport(); window.print(); });
 
 function renderAll() { renderGlobals(); renderVariants(); Object.assign(sens, { strom: 0, benzin: 0, rest: 0 }); sens.km = n0(state.g.km); syncSliders(); renderResults(); }
 renderAll();
